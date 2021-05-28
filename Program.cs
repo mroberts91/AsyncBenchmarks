@@ -7,6 +7,7 @@ namespace AsyncBenchmarks
         public static void Main(string[] args)
         {
             var summary = BenchmarkRunner.Run<AsyncBenchmark>();
+            //var summary2 = BenchmarkRunner.Run<SyncOverAsync>();
         }
     }
 }

@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 namespace AsyncBenchmarks
 {
     [SimpleJob(RuntimeMoniker.Net472, baseline: true)]
-    [SimpleJob(RuntimeMoniker.Net50)]
     [SimpleJob(RuntimeMoniker.Net60)]
     [RPlotExporter]
     [MemoryDiagnoser]
@@ -16,7 +15,7 @@ namespace AsyncBenchmarks
         private readonly string LogMessage = "Some log msg";
         
         [Params(10, 20, 30)]
-        public int IO_Bound_Task_Wait_ms { get; set; }
+        public int IO_ms { get; set; }
 
         [Benchmark]
         public async Task WhenAll_Async_TaskFromResult()
@@ -51,15 +50,6 @@ namespace AsyncBenchmarks
             consumer.Consume(await task2);
         }
 
-        [Benchmark]
-        public async Task Synchronous_Await_Async_TaskDotRunAsync()
-        {
-            var val1 = await DotRunAsyncTask();
-            var val2 = await SomeAsync();
-            consumer.Consume(val1);
-            consumer.Consume(val2);
-        }
-
         private Task<string> FromResult() => Task.FromResult(LogMessage);
 
         private Task<string> DotRunTask() => Task.Run(() => LogMessage);
@@ -68,9 +58,70 @@ namespace AsyncBenchmarks
 
         private async Task<string> SomeAsync()
         {
-            await Task.Delay(IO_Bound_Task_Wait_ms);
+            await Task.Delay(IO_ms);
             return LogMessage;
         }
 
+    }
+
+    [SimpleJob(RuntimeMoniker.Net472, baseline: true)]
+    [SimpleJob(RuntimeMoniker.Net50)]
+    [RPlotExporter]
+    [MemoryDiagnoser]
+    public class SyncOverAsync
+    {
+        private static readonly Consumer consumer = new Consumer();
+        private readonly string LogMessage = "Some log msg";
+
+        [Params(10, 50, 100)]
+        public int IO_ms { get; set; }
+
+        [Benchmark]
+        public async Task Baseline()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                await SomeAsync();
+                consumer.Consume(await SomeAsync());
+            }
+        }
+
+        [Benchmark]
+        public void Synchronous_DotResult()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                var val2 = SomeAsync().Result;
+                consumer.Consume(val2);
+            }
+        }
+
+        [Benchmark]
+        public void Synchronous_GetAwaiter_GetResult()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                var val2 = SomeAsync().GetAwaiter().GetResult();
+                consumer.Consume(val2);
+            }
+        }
+
+        [Benchmark]
+        public void Synchronous_DotWait()
+        {
+            for (int i = 0; i < 10; i++)
+            {
+                Task<string> task2 = SomeAsync();
+                task2.Wait();
+                var val2 = task2.Result;
+                consumer.Consume(val2);
+            }
+        }
+
+        private async Task<string> SomeAsync()
+        {
+            await Task.Delay(IO_ms);
+            return LogMessage;
+        }
     }
 }
